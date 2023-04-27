@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 //@ts-check
-"use strict";
-const arg = require("arg");
-var fs = require("fs");
-var path = require("path");
-var http = require("http");
-const https = require("https");
-var next = require("next");
-var qrcode = require("qrcode-terminal");
+'use strict';
+const arg = require('arg');
+var fs = require('fs');
+var path = require('path');
+var http = require('http');
+const https = require('https');
+var next = require('next');
+var qrcode = require('qrcode-terminal');
 
 const {
   printAndExit,
@@ -16,21 +16,22 @@ const {
   isError,
   CONFIG_FILES,
   getLocalIpV4Address,
-} = require("./utils");
-const { X509Certificate } = require("crypto");
-const selfSigned = require("selfsigned");
+} = require('./utils');
+const { X509Certificate } = require('crypto');
+const selfSigned = require('selfsigned');
 
-const generateCert = (/** @type {string} */ dir) => {
-  const certDir = path.join(dir, "node_modules", ".next-dev-mobile");
+const generateCert = (/** @type {string} */ dir, args) => {
+  console.log('generateCert', args);
+  const certDir = path.join(dir, 'node_modules', '.next-dev-mobile');
   if (!fs.existsSync(certDir)) {
     fs.mkdirSync(certDir, { recursive: true });
   }
-  const certPath = path.join(certDir, "cert.pem");
-  const keyPath = path.join(certDir, "key.pem");
+  const certPath = path.join(certDir, 'cert.pem');
+  const keyPath = path.join(certDir, 'key.pem');
   const existingCert =
-    fs.existsSync(certPath) && fs.readFileSync(certPath, { encoding: "utf-8" });
+    fs.existsSync(certPath) && fs.readFileSync(certPath, { encoding: 'utf-8' });
   const existingKey =
-    fs.existsSync(keyPath) && fs.readFileSync(keyPath, { encoding: "utf-8" });
+    fs.existsSync(keyPath) && fs.readFileSync(keyPath, { encoding: 'utf-8' });
   if (
     existingCert &&
     existingKey &&
@@ -38,8 +39,9 @@ const generateCert = (/** @type {string} */ dir) => {
   ) {
     return { cert: existingCert, key: existingKey };
   }
-  console.log("Generating Fresh self signed https certificate.");
-  const selfSignedCert = selfSigned.generate();
+  console.log('Generating Fresh self signed https certificate.');
+  const selfsignOptions = [{ name: 'commonName', value: args['--hostname'] || 'example.org' }];
+  const selfSignedCert = selfSigned.generate(selfsignOptions, { days: 365 });
   fs.writeFileSync(certPath, selfSignedCert.cert);
   fs.writeFileSync(keyPath, selfSignedCert.private);
   return { cert: selfSignedCert.cert, key: selfSignedCert.private };
@@ -51,24 +53,25 @@ const generateCert = (/** @type {string} */ dir) => {
  * @returns
  */
 const nextDev = (argv) => {
+  console.log('=======================================');
   const validArgs = {
     // Types
-    "--help": Boolean,
-    "--port": Number,
-    "--hostname": String,
-    "--turbo": Boolean,
+    '--help': Boolean,
+    '--port': Number,
+    '--hostname': String,
+    '--turbo': Boolean,
     // To align current messages with native binary.
     // Will need to adjust subcommand later.
-    "--show-all": Boolean,
-    "--root": String,
-    "--qr": Boolean,
-    "--https": Boolean,
+    '--show-all': Boolean,
+    '--root': String,
+    '--qr': Boolean,
+    '--https': Boolean,
     // Aliases
-    "-h": "--help",
-    "-p": "--port",
-    "-q": "--qr",
-    "-s": "--https",
-    "-H": "--hostname",
+    '-h': '--help',
+    '-p': '--port',
+    '-q': '--qr',
+    '-s': '--https',
+    '-H': '--hostname',
   };
   let args;
   try {
@@ -76,15 +79,15 @@ const nextDev = (argv) => {
       argv,
     });
   } catch (error) {
-    if (isError(error) && error.code === "ARG_UNKNOWN_OPTION") {
+    if (isError(error) && error.code === 'ARG_UNKNOWN_OPTION') {
       return printAndExit(error.message);
     }
     throw error;
   }
-  if (args["--turbo"]) {
-    printAndExit("Turbo is not supported using next-dev-https");
+  if (args['--turbo']) {
+    printAndExit('Turbo is not supported using next-dev-https');
   }
-  if (args["--help"]) {
+  if (args['--help']) {
     printAndExit(
       `Description
   Starts the application in development mode (hot-code reloading, error
@@ -103,7 +106,7 @@ Options
   --qr, -q        Display QR code in terminal on start and 'q' press
   --help, -h      Displays this message
 `,
-      0
+      0,
     );
   }
   const dir = getProjectDir(args._[0]);
@@ -113,15 +116,15 @@ Options
   }
 
   //Generate dev server certificate if needed.
-  const cert = args["--https"] ? generateCert(dir) : undefined;
+  const cert = args['--https'] ? generateCert(dir, args) : undefined;
 
   const port = getPort(args);
   // If neither --port nor PORT were specified, it's okay to retry new ports.
   const allowRetry =
-    args["--port"] === undefined && process.env.PORT === undefined;
+    args['--port'] === undefined && process.env.PORT === undefined;
   // We do not set a default host value here to prevent breaking
   // some set-ups that rely on listening on other interfaces
-  const host = args["--hostname"];
+  const host = args['--hostname'];
   const devServerOptions = {
     allowRetry,
     dev: true,
@@ -130,24 +133,24 @@ Options
     isNextDevCommand: true,
     cert,
     port,
-    qr: !!args["--qr"],
+    qr: !!args['--qr'],
   };
 
   startServer(devServerOptions)
     .then(async (app) => {
       const appUrls = [
-        ...(app.hostname === "localhost" ? getLocalIpV4Address() : []),
+        ...(app.hostname === 'localhost' ? getLocalIpV4Address() : []),
         app.hostname,
       ].map(
         (hostname) =>
-          `http${devServerOptions.cert ? "s" : ""}://${hostname}:${app.port}`
+          `http${devServerOptions.cert ? 's' : ''}://${hostname}:${app.port}`,
       );
       //Here we're supposed to emit to some byzantine state machine in next/build/output that must have been built when redux was cool.
       //Anyway it seems fine to just log directly?
       console.log(
-        `\x1b[32mready\x1b[0m - started server on ${host || "0.0.0.0"}:${
+        `\x1b[32mready\x1b[0m - started server on ${host || '0.0.0.0'}:${
           app.port
-        }, urls: ${appUrls.join(", ")}`
+        }, urls: ${appUrls.join(', ')}`,
       );
       const qrPrint =
         devServerOptions.qr &&
@@ -158,37 +161,37 @@ Options
             return;
           }
           console.log(`QR code for ${qrcodeUrl} is:`);
-          if (app.hostname !== "localhost") {
+          if (app.hostname !== 'localhost') {
             console.warn(
-              `\x1b[33mnote\x1b[0m - Server is running with explicit hostname ${app.hostname}. This address must be available on shared network for external device access.`
+              `\x1b[33mnote\x1b[0m - Server is running with explicit hostname ${app.hostname}. This address must be available on shared network for external device access.`,
             );
           }
           qrcode.generate(qrcodeUrl, { small: !big });
         });
-      
+
       const acceptsInput =
-        process.stdin.isTTY && typeof process.stdin.setRawMode === "function";
-      
+        process.stdin.isTTY && typeof process.stdin.setRawMode === 'function';
+
       if (qrPrint) {
         qrPrint();
         acceptsInput &&
-          console.log("Enter 'q' or 'Q' to display this QR again");
+        console.log('Enter \'q\' or \'Q\' to display this QR again');
       }
       await app.prepare();
       //Hijack stdin if user should be able to reprint qr.
       if (qrPrint && acceptsInput) {
         process.stdin.setRawMode(true);
         process.stdin.resume();
-        process.stdin.setEncoding("utf8");
-        process.stdin.on("data", function (/** @type {string} */ key) {
+        process.stdin.setEncoding('utf8');
+        process.stdin.on('data', function (/** @type {string} */ key) {
           // ctrl-c ( end of text )
-          if (key === "\u0003") {
+          if (key === '\u0003') {
             process.nextTick(() => process.exit(1));
           }
-          if (key === "q") {
+          if (key === 'q') {
             return qrPrint();
           }
-          if (key === "Q") {
+          if (key === 'Q') {
             return qrPrint(true);
           }
           process.stdout.write(key);
@@ -196,9 +199,9 @@ Options
       }
     })
     .catch((err) => {
-      if (err.code === "EADDRINUSE") {
+      if (err.code === 'EADDRINUSE') {
         console.error(
-          `Port ${port} is already in use. Use other port by running script with: -p <some other port>`
+          `Port ${port} is already in use. Use other port by running script with: -p <some other port>`,
         );
       } else {
         console.error(err);
@@ -209,7 +212,7 @@ Options
     fs.watchFile(path.join(dir, CONFIG_FILE), (cur, prev) => {
       if (cur.size > 0 || prev.size > 0) {
         console.log(
-          `\n> Found a change in ${CONFIG_FILE}. Restart the server to see the changes in effect.`
+          `\n> Found a change in ${CONFIG_FILE}. Restart the server to see the changes in effect.`,
         );
       }
     });
@@ -222,14 +225,14 @@ Options
  * @returns
  */
 function startServer(opts) {
-  /** @type { import("next/dist/server/next").RequestHandler } */
+  /** @type { import('next/dist/server/next').RequestHandler } */
   let requestHandler;
-  /** @type {(listener: import("http").RequestListener) => http.Server} */
+  /** @type {(listener: import('http').RequestListener) => http.Server} */
   const createServer = opts.cert
     ? https.createServer.bind(https, {
-        cert: opts.cert.cert,
-        key: opts.cert.key,
-      })
+      cert: opts.cert.cert,
+      key: opts.cert.key,
+    })
     : http.createServer;
   const server = createServer((req, res) => {
     return requestHandler(req, res);
@@ -240,12 +243,12 @@ function startServer(opts) {
   return new Promise((resolve, reject) => {
     let port = opts.port;
     let retryCount = 0;
-    server.on("error", (err) => {
+    server.on('error', (err) => {
       if (
         port &&
         opts.allowRetry &&
         isError(err) &&
-        err.code === "EADDRINUSE" &&
+        err.code === 'EADDRINUSE' &&
         retryCount < 10
       ) {
         console.warn(`Port ${port} is in use, trying ${port + 1} instead.`);
@@ -256,25 +259,25 @@ function startServer(opts) {
         reject(err);
       }
     });
-    /** @type { ReturnType<import("next/dist/server/next").NextServer["getUpgradeHandler"]> } */
+    /** @type { ReturnType<import('next/dist/server/next').NextServer['getUpgradeHandler']> } */
     let upgradeHandler;
     if (!opts.dev) {
-      server.on("upgrade", (req, socket, upgrade) => {
+      server.on('upgrade', (req, socket, upgrade) => {
         upgradeHandler(req, socket, upgrade);
       });
     }
-    server.on("listening", () => {
+    server.on('listening', () => {
       const addr = server.address();
       const hostname =
-        !opts.hostname || opts.hostname === "0.0.0.0"
-          ? "localhost"
+        !opts.hostname || opts.hostname === '0.0.0.0'
+          ? 'localhost'
           : opts.hostname;
       const app = next.default({
         ...opts,
         hostname,
         customServer: false,
         httpServer: server,
-        port: addr && typeof addr === "object" ? addr.port : port,
+        port: addr && typeof addr === 'object' ? addr.port : port,
       });
       requestHandler = app.getRequestHandler();
       upgradeHandler = app.getUpgradeHandler();
